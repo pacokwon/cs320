@@ -6,7 +6,7 @@ package object proj01 extends Project01 {
     def bare(value: Value): Int =
       value match {
         case IntV(n) => n
-        case _ => error("error!")
+        case _ => error("expression not integer value!")
       }
 
     e match {
