@@ -2,7 +2,24 @@ package cs320
 
 package object proj01 extends Project01 {
 
-  def interp(e: Expr, env: Env): Value = ???
+  def interp(e: Expr, env: Env): Value = {
+    def bare(value: Value): Int =
+      value match {
+        case IntV(n) => n
+        case _ => error("error!")
+      }
+
+    e match {
+      case IntE(n) => IntV(n)
+      case Add(l, r) => IntV(bare(interp(l, env)) + bare(interp(r, env)))
+      case Mul(l, r) => IntV(bare(interp(l, env)) * bare(interp(r, env)))
+      case Div(l, r) => IntV(bare(interp(l, env)) / bare(interp(r, env)))
+      case Mod(l, r) => IntV(bare(interp(l, env)) % bare(interp(r, env)))
+      case BooleanE(b) => BooleanV(b)
+      case Eq(l, r) => if (bare(interp(l, env)) == bare(interp(r, env))) BooleanV(true) else BooleanV(false)
+      case Lt(l, r) => if (bare(interp(l, env)) < bare(interp(r, env))) BooleanV(true) else BooleanV(false)
+    }
+  }
 
   def tests: Unit = {
     // test-int
