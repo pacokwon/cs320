@@ -34,7 +34,7 @@ package object proj01 extends Project01 {
         case _ => error("value is not cons")
       }
 
-    def app_helper(f: Value, as: List[Value]): Value = {
+    def app_helper(f: Value, as: List[Value]): Value =
       f match {
         case clov: CloV => {
           clov.env = (clov.ps zip as).foldLeft(clov.env)(_ + _)
@@ -42,7 +42,24 @@ package object proj01 extends Project01 {
         }
         case _ => error("value is not CloV")
       }
-    }
+
+
+    def type_helper(value: Value, t: Type): Value = BooleanV(
+      t == (value match {
+        case IntV(_) => IntT
+        case BooleanV(_) => BooleanT
+        case TupleV(_) => TupleT
+        case NilV | ConsV(_, _) => ListT
+        case CloV(_, _, _) => FunctionT
+      })
+    )
+
+    def cond_helper(c: Value, t: Expr, f: Expr, e: Env): Value =
+      c match {
+        case BooleanV(b) => if (b) interp(t, e) else interp(f, e)
+        case _ => error("condition is not BooleanV")
+      }
+
 
     e match {
       case IntE(n) => IntV(n)
@@ -64,6 +81,8 @@ package object proj01 extends Project01 {
       case Id(x) => env.getOrElse(x, error(s"undefined variable name $x"))
       case Fun(ps, b) => CloV(ps, b, env)
       case App(f, as) => app_helper(interp(f, env), as.map(exp => interp(exp, env)))
+      case Test(e, t) => type_helper(interp(e, env), t)
+      case If(c, t, f) => cond_helper(interp(c, env), t, f, env)
     }
   }
 
