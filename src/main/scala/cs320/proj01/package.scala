@@ -9,6 +9,13 @@ package object proj01 extends Project01 {
         case _ => error("expression not integer value!")
       }
 
+    def proj_helper(value: Value, idx: Int): Value =
+      value match {
+        case TupleV(es) => es(idx - 1)
+        case _ => error("expression not tuple value!")
+      }
+
+
     e match {
       case IntE(n) => IntV(n)
       case Add(l, r) => IntV(bare(interp(l, env)) + bare(interp(r, env)))
@@ -18,6 +25,8 @@ package object proj01 extends Project01 {
       case BooleanE(b) => BooleanV(b)
       case Eq(l, r) => if (bare(interp(l, env)) == bare(interp(r, env))) BooleanV(true) else BooleanV(false)
       case Lt(l, r) => if (bare(interp(l, env)) < bare(interp(r, env))) BooleanV(true) else BooleanV(false)
+      case TupleE(es) => TupleV(es.map(exp => interp(exp, env)))
+      case Proj(t, i) => proj_helper(interp(t), i)
     }
   }
 
