@@ -6,13 +6,13 @@ package object proj01 extends Project01 {
     def bare(value: Value): Int =
       value match {
         case IntV(n) => n
-        case _ => error("expression not integer value!")
+        case _ => error("value not integer value!")
       }
 
     def proj_helper(value: Value, idx: Int): Value =
       value match {
         case TupleV(es) => es(idx - 1)
-        case _ => error("expression not tuple value!")
+        case _ => error("value not tuple value!")
       }
 
 
