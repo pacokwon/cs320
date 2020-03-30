@@ -50,6 +50,8 @@ package object proj01 extends Project01 {
       case Empty(l) => empty_helper(interp(l, env))
       case Head(l) => head_helper(interp(l, env))
       case Tail(l) => tail_helper(interp(l, env))
+      case Val(x, e, b) => interp(b, env + (x -> interp(e, env)))
+      case Id(x) => env.getOrElse(x, error(s"undefined variable name $x"))
     }
   }
 
