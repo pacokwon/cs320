@@ -34,6 +34,16 @@ package object proj01 extends Project01 {
         case _ => error("value is not cons")
       }
 
+    def app_helper(f: Value, as: List[Value]): Value = {
+      f match {
+        case clov: CloV => {
+          clov.env = (clov.ps zip as).foldLeft(clov.env)(_ + _)
+          interp(clov.b, clov.env)
+        }
+        case _ => error("value is not CloV")
+      }
+    }
+
     e match {
       case IntE(n) => IntV(n)
       case Add(l, r) => IntV(bare(interp(l, env)) + bare(interp(r, env)))
@@ -52,6 +62,8 @@ package object proj01 extends Project01 {
       case Tail(l) => tail_helper(interp(l, env))
       case Val(x, e, b) => interp(b, env + (x -> interp(e, env)))
       case Id(x) => env.getOrElse(x, error(s"undefined variable name $x"))
+      case Fun(ps, b) => CloV(ps, b, env)
+      case App(f, as) => app_helper(interp(f, env), as.map(exp => interp(exp, env)))
     }
   }
 
