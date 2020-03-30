@@ -15,6 +15,24 @@ package object proj01 extends Project01 {
         case _ => error("value not tuple value!")
       }
 
+    def empty_helper(value: Value): Value =
+      value match {
+        case NilV => BooleanV(true)
+        case ConsV(_, _) => BooleanV(false)
+        case _ => error("value is neither nil nor cons")
+      }
+
+    def head_helper(value: Value): Value =
+      value match {
+        case ConsV(h, t) => h
+        case _ => error("value is not cons")
+      }
+
+    def tail_helper(value: Value): Value =
+      value match {
+        case ConsV(h, t) => t
+        case _ => error("value is not cons")
+      }
 
     e match {
       case IntE(n) => IntV(n)
@@ -26,7 +44,12 @@ package object proj01 extends Project01 {
       case Eq(l, r) => if (bare(interp(l, env)) == bare(interp(r, env))) BooleanV(true) else BooleanV(false)
       case Lt(l, r) => if (bare(interp(l, env)) < bare(interp(r, env))) BooleanV(true) else BooleanV(false)
       case TupleE(es) => TupleV(es.map(exp => interp(exp, env)))
-      case Proj(t, i) => proj_helper(interp(t), i)
+      case Proj(t, i) => proj_helper(interp(t, env), i)
+      case NilE => NilV
+      case ConsE(h, t) => ConsV(interp(h, env), interp(t, env))
+      case Empty(l) => empty_helper(interp(l, env))
+      case Head(l) => head_helper(interp(l, env))
+      case Tail(l) => tail_helper(interp(l, env))
     }
   }
 
