@@ -1,49 +1,47 @@
 package cs320
 
 package object proj01 extends Project01 {
+  def bare(value: Value): Int =
+    value match {
+      case IntV(n) => n
+      case _ => error("value not integer value!")
+    }
+
+  def proj_helper(value: Value, idx: Int): Value =
+    value match {
+      case TupleV(es) => es(idx - 1)
+      case _ => error("value not tuple value!")
+    }
+
+  def empty_helper(value: Value): Value =
+    value match {
+      case NilV => BooleanV(true)
+      case ConsV(_, _) => BooleanV(false)
+      case _ => error("value is neither nil nor cons")
+    }
+
+  def head_helper(value: Value): Value =
+    value match {
+      case ConsV(h, t) => h
+      case _ => error("value is not cons")
+    }
+
+  def tail_helper(value: Value): Value =
+    value match {
+      case ConsV(h, t) => t
+      case _ => error("value is not cons")
+    }
+
+  def app_helper(f: Value, as: List[Value]): Value =
+    f match {
+      case clov: CloV => {
+        clov.env = (clov.ps zip as).foldLeft(clov.env)(_ + _)
+        interp(clov.b, clov.env)
+      }
+      case _ => error("value is not CloV")
+    }
 
   def interp(e: Expr, env: Env): Value = {
-    def bare(value: Value): Int =
-      value match {
-        case IntV(n) => n
-        case _ => error("value not integer value!")
-      }
-
-    def proj_helper(value: Value, idx: Int): Value =
-      value match {
-        case TupleV(es) => es(idx - 1)
-        case _ => error("value not tuple value!")
-      }
-
-    def empty_helper(value: Value): Value =
-      value match {
-        case NilV => BooleanV(true)
-        case ConsV(_, _) => BooleanV(false)
-        case _ => error("value is neither nil nor cons")
-      }
-
-    def head_helper(value: Value): Value =
-      value match {
-        case ConsV(h, t) => h
-        case _ => error("value is not cons")
-      }
-
-    def tail_helper(value: Value): Value =
-      value match {
-        case ConsV(h, t) => t
-        case _ => error("value is not cons")
-      }
-
-    def app_helper(f: Value, as: List[Value]): Value =
-      f match {
-        case clov: CloV => {
-          clov.env = (clov.ps zip as).foldLeft(clov.env)(_ + _)
-          interp(clov.b, clov.env)
-        }
-        case _ => error("value is not CloV")
-      }
-
-
     def type_helper(value: Value, t: Type): Value = BooleanV(
       t == (value match {
         case IntV(_) => IntT
