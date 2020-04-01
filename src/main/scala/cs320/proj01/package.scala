@@ -90,6 +90,7 @@ package object proj01 extends Project01 {
       case App(f, as) => app_helper(interp(f, env), as.map(exp => interp(exp, env)))
       case Test(e, t) => type_helper(interp(e, env), t)
       case If(c, t, f) => cond_helper(interp(c, env), t, f, env)
+      case RecFuns(ds, b) => fun_helper(ds, b, env)
     }
   }
 
