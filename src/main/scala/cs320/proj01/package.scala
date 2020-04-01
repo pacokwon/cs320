@@ -41,24 +41,33 @@ package object proj01 extends Project01 {
       case _ => error("value is not CloV")
     }
 
+  def type_helper(value: Value, t: Type): Value = BooleanV(
+    t == (value match {
+      case IntV(_) => IntT
+      case BooleanV(_) => BooleanT
+      case TupleV(_) => TupleT
+      case NilV | ConsV(_, _) => ListT
+      case CloV(_, _, _) => FunctionT
+    })
+  )
+
+  def cond_helper(c: Value, t: Expr, f: Expr, e: Env): Value =
+    c match {
+      case BooleanV(b) => if (b) interp(t, e) else interp(f, e)
+      case _ => error("condition is not BooleanV")
+    }
+
+  def fun_helper(ds: List[FunDef], b: Expr, e: Env): Value = {
+    val reducedEnv = ds.foldLeft(e)((acc, fd) => {
+      val c = CloV(fd.ps, fd.b, acc)
+      c.env += fd.n -> c
+      acc + (fd.n -> c)
+    })
+
+    interp(b, reducedEnv)
+  }
+
   def interp(e: Expr, env: Env): Value = {
-    def type_helper(value: Value, t: Type): Value = BooleanV(
-      t == (value match {
-        case IntV(_) => IntT
-        case BooleanV(_) => BooleanT
-        case TupleV(_) => TupleT
-        case NilV | ConsV(_, _) => ListT
-        case CloV(_, _, _) => FunctionT
-      })
-    )
-
-    def cond_helper(c: Value, t: Expr, f: Expr, e: Env): Value =
-      c match {
-        case BooleanV(b) => if (b) interp(t, e) else interp(f, e)
-        case _ => error("condition is not BooleanV")
-      }
-
-
     e match {
       case IntE(n) => IntV(n)
       case Add(l, r) => IntV(bare(interp(l, env)) + bare(interp(r, env)))
