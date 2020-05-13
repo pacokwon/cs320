@@ -4,13 +4,15 @@ package object midterm extends Midterm {
   def binOp(op: (Int, Int) => Int): (Value, Value) => Value =
     (_, _) match {
       case (NumV(l), NumV(r)) => NumV(op(l, r))
-      case (_, _) => error("Error!")
+      case (_, _) => error("Wrong type: both operands must be NumV!")
     }
 
   def appHelper(func: Value, args: List[Value], namedArgs: Map[String, Value]): Value =
     func match {
       case CloV(params, body, env) =>
-        if (params.length == args.length + namedArgs.size)
+        if (!namedArgs.foldLeft(true)((contains, narg) => contains && params.contains(narg._1)))
+          error("Unexpected named argument!")
+        else if (params.length == args.length + namedArgs.size)
           interp(body, env ++ (params zip args) ++ namedArgs)
         else
           error("Wrong arity!")
