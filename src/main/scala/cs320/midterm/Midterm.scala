@@ -30,9 +30,9 @@ trait Midterm extends Homework {
 
   def interp(expr: Expr, env: Env): Value
 
-  def tostring(e: Value): String = e match {
+  def toStr(e: Value): String = e match {
     case NumV(n) => n.toString
-    case RecV(map) => "{" + map.map(e => e._1 + " = " + tostring(e._2)).mkString(", ") + "}"
+    case RecV(map) => "{" + map.map(e => e._1 + " = " + toStr(e._2)).mkString(", ") + "}"
     case _: CloV => "function"
   }
 
