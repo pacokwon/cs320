@@ -5,16 +5,16 @@ trait Midterm extends Homework {
   case class Num(num: Int) extends Expr
   case class Add(left: Expr, right: Expr) extends Expr
   case class Sub(left: Expr, right: Expr) extends Expr
+  case class Mul(left: Expr, right: Expr) extends Expr
+  case class Div(left: Expr, right: Expr) extends Expr
   case class Val(name: String, value: Expr, body: Expr) extends Expr  //     | {val x=e;e}
   case class Id(name: String) extends Expr                            //     | x
-  case class App(func: Expr, args: List[Expr], namedArgs: List[(String, Expr)]) extends Expr           //     | e(e,...,e)
+  case class AppNamedArgs(func: Expr, args: List[Expr], namedArgs: Map[String, Expr]) extends Expr //     | e(e,...,e)
+  case class AppStarredArgs(func: Expr, args: List[Expr], starredArgs: List[Expr]) extends Expr //     | e(e,...,e)
   case class Fun(params: List[String], body: Expr) extends Expr       //     | {(x,...,x)=>e}
-  case class Rec(items: RecItems) extends Expr                 //     | {x=e,...,x=e}
+  case class RecNamed(rec: Map[String, Expr]) extends Expr                 //     | {x=e,...,x=e}
+  case class RecStarred(rec: List[Expr]) extends Expr                 //     | {x=e,...,x=e}
   case class Acc(expr: Expr, name: String) extends Expr               //     | e.x
-
-  trait RecItems
-  case class Starred(rec: List[Expr]) extends RecItems
-  case class KeyVal(rec: Map[String, Expr]) extends RecItems
 
   // Record map
   type RecMap = Map[String, Value]
@@ -36,5 +36,5 @@ trait Midterm extends Homework {
     case _: CloV => "function"
   }
 
-  def run(e: Expr): String = tostring(interp(e, Map.empty))
+  def run(e: Expr): String = toStr(interp(e, Map.empty))
 }
