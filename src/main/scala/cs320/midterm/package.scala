@@ -7,17 +7,17 @@ package object midterm extends Midterm {
       case (_, _) => error("Error!")
     }
 
-  def appHelper(func: Value, args: List[Value], namedArgs: List[(String, Value)]): Value =
+  def appHelper(func: Value, args: List[Value], namedArgs: Map[String, Value]): Value =
     func match {
       case CloV(params, body, env) =>
-        if (params.length == args.length + namedArgs.length)
+        if (params.length == args.length + namedArgs.size)
           interp(body, env ++ (params zip args) ++ namedArgs)
         else
-          error("wrong arity")
-      case _ => error(s"wrong type: $func is not CloV")
+          error("Wrong arity!")
+      case _ => error(s"Wrong type: $func is not CloV!")
     }
 
-  def unpack(rec: List[Value], env: Env): RecMap = {
+  def unpack(rec: List[Value]): Map[String, Value] = {
     rec.foldLeft(Map.empty[String, Value])((acc, cur) => acc ++ (cur match {
       case RecV(map) => map
       case default => error(s"Failed unpack. $default is not RecV!")
@@ -29,23 +29,29 @@ package object midterm extends Midterm {
       case Num(num) => NumV(num)
       case Add(left, right) => binOp(_ + _)(interp(left, env), interp(right, env))
       case Sub(left, right) => binOp(_ - _)(interp(left, env), interp(right, env))
+      case Mul(left, right) => binOp(_ * _)(interp(left, env), interp(right, env))
+      case Div(left, right) => binOp(_ / _)(interp(left, env), interp(right, env))
       case Val(name, value, body) => interp(body, env + (name -> interp(value, env)))
       case Id(name) => env.getOrElse(name, error(s"Free Identifier $name!"))
-      case App(func, args, namedArgs) =>
+      case AppNamedArgs(func, args, namedArgs) =>
         appHelper(
           interp(func, env),
           args.map(arg => interp(arg, env)),
-          namedArgs.map(narg => ( narg._1, interp(narg._2, env) ))
+          namedArgs.map(narg => (narg._1 -> interp(narg._2, env)))
+        )
+      case AppStarredArgs(func, args, starredArgs) =>
+        appHelper(
+          interp(func, env),
+          args.map(arg => interp(arg, env)),
+          unpack(starredArgs.map(sarg => interp(sarg, env)))
         )
       case Fun(params, body) => CloV(params, body, env)
-      case Rec(items) => items match {
-        case KeyVal(rec) => RecV(rec.map(r => (r._1 -> interp(r._2, env))))
-        case Starred(rec) => RecV(unpack(rec.map(r => interp(r, env)), env))
-      }
+      case RecNamed(rec) => RecV(rec.map(r => (r._1 -> interp(r._2, env))))
+      case RecStarred(rec) => RecV(unpack(rec.map(r => interp(r, env))))
       case Acc(expr, name) =>
         interp(expr, env) match {
-          case RecV(map) => map.getOrElse(name, error(s"$name is not member of RecV"))
-          case _ => error(s"wrong type: not RecV")
+          case RecV(map) => map.getOrElse(name, error(s"Missing field: $name is not member of RecV!"))
+          case default => error(s"Wrong type: $default is not RecV!")
         }
     }
   }
@@ -54,13 +60,13 @@ package object midterm extends Midterm {
     // =================== Named Arguments  ===================
     test(
       interp(
-        App(
+        AppNamedArgs(
           Fun(
             List("x", "y", "z"),
             Sub(Add(Id("x"), Id("y")), Id("z"))
           ),
           List(Num(1), Num(2), Num(3)),
-          List()
+          Map.empty[String, Expr]
         ), Map.empty
       ),
       NumV(0)
@@ -68,13 +74,13 @@ package object midterm extends Midterm {
 
     test(
       interp(
-        App(
+        AppNamedArgs(
           Fun(
             List("x", "y", "z"),
             Sub(Add(Id("x"), Id("y")), Id("z"))
           ),
           List(Num(1)),
-          List(("y", Num(2)), ("z", Num(10)))
+          Map("y"->Num(2), "z"->Num(10))
         ), Map.empty
       ),
       NumV(-7)
@@ -82,13 +88,13 @@ package object midterm extends Midterm {
 
     test(
       interp(
-        App(
+        AppNamedArgs(
           Fun(
             List("x", "y", "z"),
             Sub(Add(Id("x"), Id("y")), Id("z"))
           ),
           List(),
-          List(("z", Num(3)), ("y", Num(2)), ("x", Num(1)))
+          Map("z"->Num(3), "y"->Num(2), "x"->Num(1))
         ), Map.empty
       ),
       NumV(0)
@@ -96,27 +102,27 @@ package object midterm extends Midterm {
 
     testExc(
       interp(
-        App(
+        AppNamedArgs(
           Fun(
             List("x", "y", "z"),
             Sub(Add(Id("x"), Id("y")), Id("z"))
           ),
           List(Num(1)),
-          List(("y", Num(2)))
+          Map("y"->Num(2))
         ), Map.empty
       ),
-      "wrong arity"
+      "Wrong arity!"
     ) // { (x, y, z) => ((x + y) - z) }(1, y=2)
 
     testExc(
       interp(
-        App(
+        AppNamedArgs(
           Fun(
             List("x", "y", "z"),
             Sub(Add(Id("x"), Id("y")), Id("z"))
           ),
           List(Num(1)),
-          List(("x", Num(2)), ("y", Num(3)))
+          Map("x"->Num(2), "y"->Num(3))
         ), Map.empty
       ),
       "Free Identifier z!"
@@ -125,11 +131,9 @@ package object midterm extends Midterm {
     // =================== Record Unpacking  ===================
     test(
       run(
-        Val("rec1", Rec(KeyVal(Map("x"->Num(1), "y"->Num(2)))),
-          Val("rec2", Rec(KeyVal(Map("z"->Num(3), "w"->Num(4)))),
-            Rec(Starred(
-              List(Id("rec1"), Id("rec2"))
-            ))
+        Val("rec1", RecNamed(Map("x"->Num(1), "y"->Num(2))),
+          Val("rec2", RecNamed(Map("z"->Num(3), "w"->Num(4))),
+            RecStarred(List(Id("rec1"), Id("rec2")))
           )
         )
       ),
@@ -147,11 +151,9 @@ package object midterm extends Midterm {
 
     test(
       run(
-        Val("rec1", Rec(KeyVal(Map("x"->Num(1), "y"->Num(2)))),
-          Val("rec2", Rec(KeyVal(Map("z"->Num(3), "w"->Num(4)))),
-            Rec(Starred(
-              List(Id("rec1"), Id("rec2"), Rec(KeyVal(Map("x"->Num(10), "z"->Num(30)))))
-            ))
+        Val("rec1", RecNamed(Map("x"->Num(1), "y"->Num(2))),
+          Val("rec2", RecNamed(Map("z"->Num(3), "w"->Num(4))),
+            RecStarred(List(Id("rec1"), Id("rec2"), RecNamed(Map("x"->Num(10), "z"->Num(30)))))
           )
         )
       ),
@@ -168,25 +170,60 @@ package object midterm extends Midterm {
     */
 
     test(
-      run(
-        Val("rec1", Rec(KeyVal(Map("x"->Num(1), "y"->Num(2)))),
-          Val("rec2", Rec(KeyVal(Map("z"->Num(3), "w"->Num(4)))),
-            Rec(Starred(
-              List(Id("rec1"), Rec(KeyVal(Map("x"->Num(10), "z"->Num(30)))), Id("rec2"))
-            ))
+      interp(
+        Val("rec1", RecNamed(Map("x"->Num(1), "y"->Num(2))),
+          Val("rec2", RecNamed(Map("z"->Num(3), "w"->Num(4))),
+            Val(
+              "merged",
+              RecStarred(List(Id("rec1"), RecNamed(Map("x"->Num(10), "z"->Num(30))), Id("rec2"))
+                ),
+              Acc(Id("merged"), "x")
+            )
           )
-        )
+        ), Map.empty
       ),
-      "{x = 10, y = 2, z = 3, w = 4}"
+      NumV(10)
     )
     /*
     {
       val rec1 = { x = 1, y = 2 };
       {
         val rec2 = { z = 3, w = 4 };
-        { **rec1, **{ x = 10, z = 30 }, **rec2 }
+        {
+          val merged = { **rec1, **{ x = 10, z = 30 }, **rec2 }
+          merged.x
+        }
       }
     }
     */
+
+    // =================== Argument Unpacking  ===================
+    test(
+      interp(
+        AppStarredArgs(
+          Fun(
+            List("x", "y", "z", "w"),
+            Add(Sub(Id("x"), Id("y")), Sub(Id("z"), Id("w")))
+          ),
+          List(Num(4), Num(3)),
+          List(RecNamed(Map("z"->Num(2), "w"->Num(1))))
+        ), Map.empty
+      ),
+      NumV(2)
+    ) // { (x, y, z, w) => ((x - y) + (z - w)) }(4, 3, **{ z = 2, w = 1 })
+
+    testExc(
+      interp(
+        AppStarredArgs(
+          Fun(
+            List("x", "y", "z", "w"),
+            Add(Sub(Id("x"), Id("y")), Sub(Id("z"), Id("w")))
+          ),
+          List(Num(4), Num(3), Num(2)),
+          List(RecNamed(Map("z"->Num(2), "w"->Num(1))))
+        ), Map.empty
+      ),
+      "Wrong arity!"
+    ) // { (x, y, z, w) => ((x - y) + (z - w)) }(4, 3, 2, **{ z = 2, w = 1 })
   }
 }
