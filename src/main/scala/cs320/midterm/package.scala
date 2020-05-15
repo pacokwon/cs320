@@ -12,10 +12,12 @@ package object midterm extends Midterm {
       case CloV(params, body, env) =>
         if (!namedArgs.foldLeft(true)((contains, narg) => contains && params.contains(narg._1)))
           error("Unexpected named argument!")
-        else if (params.length == args.length + namedArgs.size)
-          interp(body, env ++ (params zip args) ++ namedArgs)
-        else
+        else if (!namedArgs.foldLeft(true)((contains, narg) => contains && params.indexOf(narg._1) != -1 && params.indexOf(narg._1) >= args.length ))
+          error("Got both positional and named arguments for one parameter!")
+        else if (params.length != args.length + namedArgs.size)
           error("Wrong arity!")
+        else
+          interp(body, env ++ (params zip args) ++ namedArgs)
       case _ => error(s"Wrong type: $func is not CloV!")
     }
 
