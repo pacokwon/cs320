@@ -122,15 +122,102 @@ package object midterm extends Midterm {
       interp(
         AppNamedArgs(
           Fun(
-            List("x", "y", "z"),
-            Sub(Add(Id("x"), Id("y")), Id("z"))
+            List("x", "y"),
+            Add(Id("x"), Id("y"))
           ),
-          List(Num(1)),
-          Map("x"->Num(2), "y"->Num(3))
+          List(),
+          Map("x"->Num(1), "y"->Num(2), "z"->Num(3))
         ), Map.empty
       ),
-      "Free Identifier z!"
-    ) // { (x, y, z) => ((x + y) - z) }(1, x=2, y=3)
+      "Unexpected named argument!"
+    )
+    // { (x, y) => (x + y) }(x = 1, y = 2, z = 3)
+
+    testExc(
+      interp(
+        AppNamedArgs(
+          Fun(
+            List("x", "y"),
+            Id("x")
+          ),
+          List(Num(10)),
+          Map("x"->Num(1), "y"->Num(20))
+        ), Map.empty
+      ),
+      "Got both positional and named arguments for one parameter!"
+    )
+    // { (x, y) => (x + y) }(x = 1, y = 2, z = 3)
+
+    // =================== Argument Unpacking  ===================
+    test(
+      interp(
+        AppStarredArgs(
+          Fun(
+            List("x", "y", "z", "w"),
+            Add(Sub(Id("x"), Id("y")), Sub(Id("z"), Id("w")))
+          ),
+          List(Num(4), Num(3)),
+          List(RecNamed(Map("z"->Num(2), "w"->Num(1))))
+        ), Map.empty
+      ),
+      NumV(2)
+    ) // { (x, y, z, w) => ((x - y) + (z - w)) }(4, 3, **{ z = 2, w = 1 })
+
+    test(
+      interp(
+        Val(
+          "NBMI",
+          Fun(
+            List("height", "weight", "age"),
+            Div(Div(Mul(Id("height"), Id("height")), Id("weight")), Id("age"))
+          ),
+          Val(
+            "person",
+            RecNamed(Map("height"->Num(175), "weight"->Num(75), "age"->Num(30))),
+            AppStarredArgs(Id("NBMI"), List(), List(Id("person")))
+          )
+        ), Map.empty
+      ),
+      NumV(13)
+    )
+    /*
+    {
+      val NBMI = { (height, weight, age) => (((height * height) / weight) / age) };
+      {
+        val person = { height = 175, weight = 75, age = 30 };
+        NBMI(**person)
+      }
+    }
+    */
+
+    testExc(
+      interp(
+        AppStarredArgs(
+          Fun(
+            List("x", "y", "z", "w"),
+            Add(Sub(Id("x"), Id("y")), Sub(Id("z"), Id("w")))
+          ),
+          List(Num(4)),
+          List(RecNamed(Map("z"->Num(2), "w"->Num(1))))
+        ), Map.empty
+      ),
+      "Wrong arity!"
+    ) // { (x, y, z, w) => ((x - y) + (z - w)) }(4, 3, 2, **{ z = 2, w = 1 })
+
+    testExc(
+      interp(
+        AppStarredArgs(
+          Fun(
+            List("x", "y"),
+            Add(Id("x"), Id("y"))
+          ),
+          List(),
+          List(RecNamed(Map("x"->Num(1), "y"->Num(2), "z"->Num(3))))
+        ), Map.empty
+      ),
+      "Unexpected named argument!"
+    )
+    // { (x, y) => (x + y) }(**{x = 1, y = 2, z = 3})
 
     // =================== Record Unpacking  ===================
     test(
@@ -201,33 +288,93 @@ package object midterm extends Midterm {
     }
     */
 
-    // =================== Argument Unpacking  ===================
-    test(
-      interp(
-        AppStarredArgs(
-          Fun(
-            List("x", "y", "z", "w"),
-            Add(Sub(Id("x"), Id("y")), Sub(Id("z"), Id("w")))
-          ),
-          List(Num(4), Num(3)),
-          List(RecNamed(Map("z"->Num(2), "w"->Num(1))))
-        ), Map.empty
-      ),
-      NumV(2)
-    ) // { (x, y, z, w) => ((x - y) + (z - w)) }(4, 3, **{ z = 2, w = 1 })
-
     testExc(
       interp(
-        AppStarredArgs(
-          Fun(
-            List("x", "y", "z", "w"),
-            Add(Sub(Id("x"), Id("y")), Sub(Id("z"), Id("w")))
-          ),
-          List(Num(4), Num(3), Num(2)),
-          List(RecNamed(Map("z"->Num(2), "w"->Num(1))))
+        Val("rec1", Num(1),
+          Val("rec2", RecNamed(Map("z"->Num(3), "w"->Num(4))),
+            RecStarred(List(Id("rec1"), Id("rec2")))
+          )
         ), Map.empty
       ),
-      "Wrong arity!"
-    ) // { (x, y, z, w) => ((x - y) + (z - w)) }(4, 3, 2, **{ z = 2, w = 1 })
+      "Failed unpack. NumV(1) is not RecV!"
+    )
+    /*
+    {
+      val rec1 = 1;
+      {
+        val rec2 = { z = 3, w = 4 };
+        { **rec1, **rec2 }
+      }
+    }
+    */
+
+    test(
+      run(
+        Val(
+          "NBMI",
+          Fun(
+            List("height", "weight", "age"),
+            Div(Div(Mul(Id("height"), Id("height")), Id("weight")), Id("age"))
+          ),
+          Val(
+            "person",
+            RecNamed(Map("height"->Num(175), "weight"->Num(75), "age"->Num(30))),
+            Val(
+              "nbmi",
+              AppStarredArgs(Id("NBMI"), List(), List(Id("person"))),
+              RecStarred(List(Id("person"), RecNamed(Map("nbmi"->Id("nbmi")))))
+            )
+          )
+        )
+      ),
+      "{height = 175, weight = 75, age = 30, nbmi = 13}"
+    )
+    /*
+    {
+      val NBMI = { (height, weight, age) => (((height * height) / weight) / age) };
+      {
+        val person = { height = 175, weight = 75, age = 30 };
+        {
+          val nbmi = NBMI(**person);
+          { **person, **{ nbmi = nbmi } }
+        }
+      }
+    }
+    */
+
+    test(
+      run(
+        Val(
+          "NBMI",
+          Fun(
+            List("height", "weight", "age"),
+            Div(Div(Mul(Id("height"), Id("height")), Id("weight")), Id("age"))
+          ),
+          Val(
+            "person",
+            RecNamed(Map("height"->Num(175), "weight"->Num(75), "age"->Num(30))),
+            Val(
+              "skinnier",
+              RecStarred(List(Id("person"), RecNamed(Map("weight"->Num(60))))),
+              Id("skinnier")
+            )
+          )
+        )
+      ),
+      "{height = 175, weight = 60, age = 30}"
+    )
+    /*
+    {
+      val NBMI = { (height, weight, age) => (((height * height) / weight) / age) };
+      {
+        val person = { height = 175, weight = 75, age = 30 };
+        {
+          val skinnier = { **person, **{weight = 60} };
+          skinnier
+        }
+      }
+    }
+    */
+
   }
 }
