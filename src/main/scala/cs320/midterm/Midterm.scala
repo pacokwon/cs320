@@ -2,19 +2,19 @@ package cs320
 
 trait Midterm extends Homework {
   sealed trait Expr
-  case class Num(num: Int) extends Expr
-  case class Add(left: Expr, right: Expr) extends Expr
-  case class Sub(left: Expr, right: Expr) extends Expr
-  case class Mul(left: Expr, right: Expr) extends Expr
-  case class Div(left: Expr, right: Expr) extends Expr
-  case class Val(name: String, value: Expr, body: Expr) extends Expr  //     | {val x=e;e}
-  case class Id(name: String) extends Expr                            //     | x
-  case class AppNamedArgs(func: Expr, args: List[Expr], namedArgs: Map[String, Expr]) extends Expr //     | e(e,...,e)
-  case class AppStarredArgs(func: Expr, args: List[Expr], starredArgs: List[Expr]) extends Expr //     | e(e,...,e)
-  case class Fun(params: List[String], body: Expr) extends Expr       //     | {(x,...,x)=>e}
-  case class RecNamed(rec: Map[String, Expr]) extends Expr                 //     | {x=e,...,x=e}
-  case class RecStarred(rec: List[Expr]) extends Expr                 //     | {x=e,...,x=e}
-  case class Acc(expr: Expr, name: String) extends Expr               //     | e.x
+  case class Num(num: Int) extends Expr                                                             // e ::= n
+  case class Add(left: Expr, right: Expr) extends Expr                                              //     | (e + e)
+  case class Sub(left: Expr, right: Expr) extends Expr                                              //     | (e - e)
+  case class Mul(left: Expr, right: Expr) extends Expr                                              //     | (e * e)
+  case class Div(left: Expr, right: Expr) extends Expr                                              //     | (e / e)
+  case class Val(name: String, value: Expr, body: Expr) extends Expr                                //     | {val x=e;e}
+  case class Id(name: String) extends Expr                                                          //     | x
+  case class AppNamedArgs(func: Expr, args: List[Expr], namedArgs: Map[String, Expr]) extends Expr  //     | e(e,...,e)
+  case class AppStarredArgs(func: Expr, args: List[Expr], starredArgs: List[Expr]) extends Expr     //     | e(**e,...,**e)
+  case class Fun(params: List[String], body: Expr) extends Expr                                     //     | {(x,...,x)=>e}
+  case class RecNamed(rec: Map[String, Expr]) extends Expr                                          //     | {x=e,...,x=e}
+  case class RecStarred(rec: List[Expr]) extends Expr                                               //     | {**e,...,**e}
+  case class Acc(expr: Expr, name: String) extends Expr                                             //     | e.x
 
   // Record map
   type RecMap = Map[String, Value]
