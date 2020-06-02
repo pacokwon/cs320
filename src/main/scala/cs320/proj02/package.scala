@@ -1,8 +1,61 @@
 package cs320
 
 package object proj02 extends Project02 {
+  def binOp(op: (Int, Int) => Int): (Value, Value) => Value =
+    (_, _) match {
+      case (IntV(l), IntV(r)) => IntV(op(l, r))
+      case (_, _) => error("Wrong Type: operands are not IntV")
+    }
 
-  def interp(e: Expr, env: Env, k: Cont, ek: ECont): Value = ???
+  val intVAdd = binOp(_ + _)
+  val intVMul = binOp(_ * _)
+
+  val intVDiv: (Value, Value) => Value = (_, _) match {
+    case (IntV(l), IntV(r)) => if (r != 0) IntV(l / r) else error("Zero Division")
+    case (_, _) => error("Wrong Type: operands are not IntV")
+  }
+  val intVMod: (Value, Value) => Value = (_, _) match {
+    case (IntV(l), IntV(r)) => if (r != 0) IntV(l % r) else error("Zero Division")
+    case (_, _) => error("Wrong Type: operands are not IntV")
+  }
+
+  def interp(e: Expr, env: Env, k: Cont, ek: ECont): Value =
+    e match {
+      case IntE(value) => k(IntV(value))
+      case BooleanE(value) => k(BooleanV(value))
+      case Add(e1, e2) =>
+        interp(e1, env, v1 =>
+          interp(e2, env, v2 =>
+            k(intVAdd(v1, v2)),
+            ek
+          ),
+          ek
+        )
+      case Mul(e1, e2) =>
+        interp(e1, env, v1 =>
+          interp(e2, env, v2 =>
+            k(intVMul(v1, v2)),
+            ek
+          ),
+          ek
+        )
+      case Div(e1, e2) =>
+        interp(e1, env, v1 =>
+          interp(e2, env, v2 =>
+            k(intVDiv(v1, v2)),
+            ek
+          ),
+          ek
+        )
+      case Mod(e1, e2) =>
+        interp(e1, env, v1 =>
+          interp(e2, env, v2 =>
+            k(intVAdd(v1, v2)),
+            ek
+          ),
+          ek
+        )
+    }
 
   def tests: Unit = {
     // test-int
