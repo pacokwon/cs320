@@ -63,6 +63,42 @@ package object proj02 extends Project02 {
           ),
           ek
         )
+      case Eq(e1, e2) =>
+        interp(e1, env, v1 =>
+          interp(e2, env, v2 =>
+            k(intVEq(v1, v2)),
+            ek
+          ),
+          ek
+        )
+      case Lt(e1, e2) =>
+        interp(e1, env, v1 =>
+          interp(e2, env, v2 =>
+            k(intVLt(v1, v2)),
+            ek
+          ),
+          ek
+        )
+
+      case If(cond, tb, fb) =>
+        interp(cond, env, v =>
+          v match {
+            case BooleanV(b) => interp(if (b) tb else fb, env, bv => k(bv), ek)
+            case _ => error("Wrong Type: condition not BooleanV")
+          },
+          ek
+        )
+
+      case TupleE(exps) => k(TupleV(exps.map(exp => interp(exp, env, v => v, None))))
+
+      case Proj(exp, idx) =>
+        interp(exp, env, v =>
+          v match {
+            case TupleV(values) => k(values(idx - 1))
+            case _ => error("Wrong Type: operand is not TupleV")
+          },
+          ek
+        )
     }
 
   def tests: Unit = {
