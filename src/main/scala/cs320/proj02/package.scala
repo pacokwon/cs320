@@ -51,6 +51,7 @@ package object proj02 extends Project02 {
         interp(e1, env, v1 =>
           interp(e2, env, v2 =>
             k(intVAdd(v1, v2)),
+            k(intVMod(v1, v2)),
             ek
           ),
           ek
