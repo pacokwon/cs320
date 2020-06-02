@@ -1,14 +1,22 @@
 package cs320
 
 package object proj02 extends Project02 {
-  def binOp(op: (Int, Int) => Int): (Value, Value) => Value =
+  def intOp(op: (Int, Int) => Int): (Value, Value) => Value =
     (_, _) match {
       case (IntV(l), IntV(r)) => IntV(op(l, r))
       case (_, _) => error("Wrong Type: operands are not IntV")
     }
 
-  val intVAdd = binOp(_ + _)
-  val intVMul = binOp(_ * _)
+  def boolOp(op: (Int, Int) => Boolean): (Value, Value) => Value =
+    (_, _) match {
+      case (IntV(l), IntV(r)) => BooleanV(op(l, r))
+      case (_, _) => error("Wrong Type: operands are not IntV")
+    }
+
+  val intVAdd = intOp(_ + _)
+  val intVMul = intOp(_ * _)
+  val intVEq = boolOp(_ == _)
+  val intVLt = boolOp(_ < _)
 
   val intVDiv: (Value, Value) => Value = (_, _) match {
     case (IntV(l), IntV(r)) => if (r != 0) IntV(l / r) else error("Zero Division")
@@ -50,7 +58,6 @@ package object proj02 extends Project02 {
       case Mod(e1, e2) =>
         interp(e1, env, v1 =>
           interp(e2, env, v2 =>
-            k(intVAdd(v1, v2)),
             k(intVMod(v1, v2)),
             ek
           ),
