@@ -29,6 +29,7 @@ package object proj02 extends Project02 {
 
   def interp(e: Expr, env: Env, k: Cont, ek: ECont): Value =
     e match {
+      case Id(name) => k(env.getOrElse(name, error(s"Free Identifier $name")))
       case IntE(value) => k(IntV(value))
       case BooleanE(value) => k(BooleanV(value))
       case Add(e1, e2) =>
@@ -140,6 +141,16 @@ package object proj02 extends Project02 {
           },
           ek
         )
+
+      case Val(name, exp, body) =>
+        interp(exp, env, ev =>
+          interp(body, env + (name -> ev), bv =>
+            k(bv),
+            ek
+          ),
+          ek
+        )
+
     }
 
   def tests: Unit = {
