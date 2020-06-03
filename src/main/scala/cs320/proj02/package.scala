@@ -222,6 +222,37 @@ package object proj02 extends Project02 {
           ),
           ek
         )
+
+      case Throw(exp) =>
+        interp(exp, env, v =>
+          ek match {
+            case Some(handler) => handler(v)
+            case _ => error("Exception Not Handled")
+          },
+          ek
+        )
+
+      case Try(exp, handler) =>
+        // (1) evaluate e1
+        interp(exp, env, ev => k(ev), Some(ve =>
+          // (2) if e1 causes an exception carrying ve (a) evaluate e2
+          interp(handler, env, hv =>
+            hv match {
+              // (c)
+              // (c)-(i) if closure
+              case CloV(params, body, fenv) =>
+                if (params.length == 1)
+                  interp(body, fenv + (params(0) -> ve), vc => k(vc), ek)
+                else
+                  error("Wrong Arity: CloV must have only one argument")
+              // (c)-(ii) if continuation
+              case ContV(cont) => cont(ve)
+              case _ => error("Wrong Type: handler must be CloV or ContV")
+            },
+            // (2)-(b)-(i)
+            ek
+          ))
+        )
     }
 
   def tests: Unit = {
