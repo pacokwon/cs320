@@ -124,7 +124,7 @@ package object proj02 extends Project02 {
         interp(exp, env, v =>
           v match {
             case TupleV(values) =>
-              if (idx >= values.length)
+              if (idx <= values.length)
                 k(values(idx - 1))
               else
                 error("IndexError: index exceeds tuple length")
