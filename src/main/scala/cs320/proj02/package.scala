@@ -28,17 +28,18 @@ package object proj02 extends Project02 {
     case (_, _) => error("Wrong Type: operands are not IntV")
   }
 
-  def appHelper(args: List[Expr], stack: List[Value], env: Env, k: List[Value] => Value, ek: ECont): Value = {
+
+  def aggregateArgs(args: List[Expr], stack: List[Value], env: Env, k: List[Value] => Value, ek: ECont): Value =
     args match {
       case Nil => k(stack.reverse)
       case h :: t =>
         interp(h, env, hv =>
-          appHelper(t, (hv :: stack), env, k, ek),
+          aggregateArgs(t, (hv :: stack), env, k, ek),
           ek
         )
-      case _ => error("Wrong Type: args is not List[Expr]")
+        case _ => error("Wrong Type: args is not List[Expr]")
     }
-  }
+
 
   def interp(e: Expr, env: Env, k: Cont, ek: ECont): Value =
     e match {
@@ -103,7 +104,7 @@ package object proj02 extends Project02 {
           ek
         )
 
-      case TupleE(exps) => k(TupleV(exps.map(exp => interp(exp, env, v => v, None))))
+      case TupleE(exps) => aggregateArgs(exps, Nil, env, argv => k(TupleV(argv)), ek)
 
       case Proj(exp, idx) =>
         interp(exp, env, v =>
@@ -179,7 +180,7 @@ package object proj02 extends Project02 {
         interp(func, env, fv =>
           fv match {
             case CloV(params, body, fenv) =>
-              appHelper(args, Nil, env, argv =>
+              aggregateArgs(args, Nil, env, argv =>
                 interp(body, fenv ++ (params zip argv), ev => k(ev), ek),
                 ek
               )
