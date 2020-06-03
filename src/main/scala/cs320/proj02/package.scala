@@ -123,7 +123,11 @@ package object proj02 extends Project02 {
       case Proj(exp, idx) =>
         interp(exp, env, v =>
           v match {
-            case TupleV(values) => k(values(idx - 1))
+            case TupleV(values) =>
+              if (idx >= values.length)
+                k(values(idx - 1))
+              else
+                error("IndexError: index exceeds tuple length")
             case _ => error("Wrong Type: operand is not TupleV")
           },
           ek
