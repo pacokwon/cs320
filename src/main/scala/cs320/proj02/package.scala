@@ -40,6 +40,20 @@ package object proj02 extends Project02 {
         case _ => error("Wrong Type: args is not List[Expr]")
     }
 
+  def secondK(e2: Expr, env: Env, k: Cont, ek: ECont): Value =
+    interp(e2, env, v2 =>
+      v2 match {
+        case n2: IntV => k(n2)
+        case _ => error("Wrong Type: operand is not IntV")
+      },
+      ek
+    )
+
+  def excHelper(ek: ECont): Value => Value =
+    exc => ek match {
+      case Some(handler) => handler(exc)
+      case default => error("Exception Not Handled")
+    }
 
   def interp(e: Expr, env: Env, k: Cont, ek: ECont): Value =
     e match {
@@ -48,50 +62,50 @@ package object proj02 extends Project02 {
       case BooleanE(value) => k(BooleanV(value))
       case Add(e1, e2) =>
         interp(e1, env, v1 =>
-          interp(e2, env, v2 =>
-            k(intVAdd(v1, v2)),
-            ek
-          ),
+          v1 match {
+            case n1: IntV => secondK(e2, env, n2 => k(intVAdd(n1, n2)), ek)
+            case _ => error("Wrong Type: operand is not IntV")
+          },
           ek
         )
       case Mul(e1, e2) =>
         interp(e1, env, v1 =>
-          interp(e2, env, v2 =>
-            k(intVMul(v1, v2)),
-            ek
-          ),
+          v1 match {
+            case n1: IntV => secondK(e2, env, n2 => k(intVMul(n1, n2)), ek)
+            case _ => error("Wrong Type: operand is not IntV")
+          },
           ek
         )
       case Div(e1, e2) =>
         interp(e1, env, v1 =>
-          interp(e2, env, v2 =>
-            k(intVDiv(v1, v2)),
-            ek
-          ),
+          v1 match {
+            case n1: IntV => secondK(e2, env, n2 => k(intVDiv(n1, n2)), ek)
+            case _ => error("Wrong Type: operand is not IntV")
+          },
           ek
         )
       case Mod(e1, e2) =>
         interp(e1, env, v1 =>
-          interp(e2, env, v2 =>
-            k(intVMod(v1, v2)),
-            ek
-          ),
+          v1 match {
+            case n1: IntV => secondK(e2, env, n2 => k(intVMod(n1, n2)), ek)
+            case _ => error("Wrong Type: operand is not IntV")
+          },
           ek
         )
       case Eq(e1, e2) =>
         interp(e1, env, v1 =>
-          interp(e2, env, v2 =>
-            k(intVEq(v1, v2)),
-            ek
-          ),
+          v1 match {
+            case n1: IntV => secondK(e2, env, n2 => k(intVEq(n1, n2)), ek)
+            case _ => error("Wrong Type: operand is not IntV")
+          },
           ek
         )
       case Lt(e1, e2) =>
         interp(e1, env, v1 =>
-          interp(e2, env, v2 =>
-            k(intVLt(v1, v2)),
-            ek
-          ),
+          v1 match {
+            case n1: IntV => secondK(e2, env, n2 => k(intVLt(n1, n2)), ek)
+            case _ => error("Wrong Type: operand is not IntV")
+          },
           ek
         )
 
