@@ -22,9 +22,22 @@ package object proj02 extends Project02 {
     case (IntV(l), IntV(r)) => if (r != 0) IntV(l / r) else error("Zero Division")
     case (_, _) => error("Wrong Type: operands are not IntV")
   }
+
   val intVMod: (Value, Value) => Value = (_, _) match {
     case (IntV(l), IntV(r)) => if (r != 0) IntV(l % r) else error("Zero Division")
     case (_, _) => error("Wrong Type: operands are not IntV")
+  }
+
+  def appHelper(args: List[Expr], stack: List[Value], env: Env, k: List[Value] => Value, ek: ECont): Value = {
+    args match {
+      case Nil => k(stack.reverse)
+      case h :: t =>
+        interp(h, env, hv =>
+          appHelper(t, (hv :: stack), env, k, ek),
+          ek
+        )
+      case _ => error("Wrong Type: args is not List[Expr]")
+    }
   }
 
   def interp(e: Expr, env: Env, k: Cont, ek: ECont): Value =
@@ -151,6 +164,45 @@ package object proj02 extends Project02 {
           ek
         )
 
+      case Vcc(name, body) => interp(body, env + (name -> ContV(k)), k, ek)
+
+      case Fun(params, body) => k(CloV(params, body, env))
+
+      case RecFuns(funcs, body) =>
+        val names = funcs.map(func => func.name)
+        val clovs = funcs.map(func => CloV(func.parameters, func.body, env))
+        val newEnv = (names zip clovs).foldLeft(env)((acc, fd) => acc + (fd._1 -> fd._2))
+        clovs.foreach(f => { f.env = newEnv })
+        interp(body, newEnv, bv => k(bv), ek)
+
+      case App(func, args) =>
+        interp(func, env, fv =>
+          fv match {
+            case CloV(params, body, fenv) =>
+              appHelper(args, Nil, env, argv =>
+                interp(body, fenv ++ (params zip argv), ev => k(ev), ek),
+                ek
+              )
+            case ContV(cont) =>
+              interp(args(0), env, av => cont(av), ek)
+            case _ => error("Wrong Type: not CloV")
+          },
+          ek
+        )
+
+      case Test(exp, typ) =>
+        interp(exp, env, ev =>
+          k(BooleanV(
+            (ev match {
+              case IntV(_) => IntT
+              case BooleanV(_) => BooleanT
+              case TupleV(_) => TupleT
+              case NilV | ConsV(_, _) => ListT
+              case CloV(_, _, _) | ContV(_) => FunctionT
+            }) == typ)
+          ),
+          ek
+        )
     }
 
   def tests: Unit = {
