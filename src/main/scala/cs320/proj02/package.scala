@@ -99,6 +99,47 @@ package object proj02 extends Project02 {
           },
           ek
         )
+
+      case NilE => k(NilV)
+      case ConsE(head, tail) =>
+        interp(head, env, h =>
+          interp(tail, env, t =>
+            t match {
+              case NilV | ConsV(_, _) => k(ConsV(h, t))
+              case _ => error("Wrong Type: tail is not List")
+            },
+            ek
+          ),
+          ek
+        )
+
+      case Empty(exp) =>
+        interp(exp, env, l =>
+          l match {
+            case NilV => k(BooleanV(true))
+            case ConsV(_, _) => k(BooleanV(false))
+            case _ => error("Wrong Type: operand is not List")
+          },
+          ek
+        )
+
+      case Head(exp) =>
+        interp(exp, env, l =>
+          l match {
+            case ConsV(h, t) => k(h)
+            case _ => error("Wrong Type: operand is not ConsV")
+          },
+          ek
+        )
+
+      case Tail(exp) =>
+        interp(exp, env, l =>
+          l match {
+            case ConsV(h, t) => k(t)
+            case _ => error("Wrong Type: operand is not ConsV")
+          },
+          ek
+        )
     }
 
   def tests: Unit = {
