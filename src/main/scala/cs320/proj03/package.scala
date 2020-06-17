@@ -9,6 +9,24 @@ package object proj03 extends Project03 {
     import Typed._
 
     def typeCheck(expr: Expr): Type = ???
+    def validType(ty: Type, env: TEnv): Type =
+      ty match {
+        case IntT | BooleanT | UnitT => ty
+        case ArrowT(p, r) =>
+          ArrowT(p.map(pt => validType(pt, env)), validType(r, env))
+        case AppT(name, targs) =>
+          targs.foreach(ta => validType(ta, env))
+          if (!env.tbinds.contains(name))
+            error("Type not in domain!")
+          else {
+            val t = env.tbinds.getOrElse(name, error("Type not in Type Environment!"))
+            if (targs.length == t.size) ty
+            else error("# of type arguments != # of type parameters!")
+          }
+        case VarT(name) =>
+          if (env.vars.contains(name)) ty
+          else error("Variable Type not in Type Environment!")
+      }
   }
 
   object U {
