@@ -8,7 +8,6 @@ package object proj03 extends Project03 {
   object T {
     import Typed._
 
-    def typeCheck(expr: Expr): Type = ???
     def validType(ty: Type, env: TEnv): Type =
       ty match {
         case IntT | BooleanT | UnitT => ty
@@ -26,6 +25,10 @@ package object proj03 extends Project03 {
         case VarT(name) =>
           if (env.vars.contains(name)) ty
           else error("Variable Type not in Type Environment!")
+      }
+    def typeCheck(expr: Expr): Type =
+      typeCheckHelper(expr, TEnv())
+    def typeCheckHelper(expr: Expr, env: TEnv): Type =
       }
   }
 
