@@ -27,12 +27,12 @@ package object proj03 extends Project03 {
           if (!env.tbinds.contains(name))
             error("Type not in domain!")
           else {
-            val t = env.tbinds.getOrElse(name, error("Type not in Type Environment!"))
-            if (targs.length == t.size) ty
+            val tbind = env.tbinds.getOrElse(name, error("Type not in Type Environment!"))
+            if (targs.length == tbind._1.size) ty
             else error("# of type arguments != # of type parameters!")
           }
         case VarT(name) =>
-          if (env.vars.contains(name)) ty
+          if (env.tvars.contains(name)) ty
           else error("Variable Type not in Type Environment!")
       }
     def typeCheck(expr: Expr): Type =
