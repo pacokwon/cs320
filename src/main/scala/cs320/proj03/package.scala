@@ -101,6 +101,35 @@ package object proj03 extends Project03 {
       interpE(expr, Map(), Map())._1
 
     def interpE(expr: Expr, env: Env, sto: Sto): (Value, Sto) =
+      expr match {
+        case IntE(value) => (IntV(value), sto)
+        case BooleanE(value) => (BooleanV(value), sto)
+        case UnitE => (UnitV, sto)
+        case Add(left, right) =>
+          val (IntV(n), ls) = interpE(left, env, sto)
+          val (IntV(m), rs) = interpE(right, env, ls)
+          (IntV(n + m), rs)
+        case Mul(left, right) =>
+          val (IntV(n), ls) = interpE(left, env, sto)
+          val (IntV(m), rs) = interpE(right, env, ls)
+          (IntV(n * m), rs)
+        case Div(left, right) =>
+          val (IntV(n), ls) = interpE(left, env, sto)
+          val (IntV(m), rs) = interpE(right, env, ls)
+          (IntV(n / m), rs)
+        case Mod(left, right) =>
+          val (IntV(n), ls) = interpE(left, env, sto)
+          val (IntV(m), rs) = interpE(right, env, ls)
+          (IntV(n % m), rs)
+        case Eq(left, right) =>
+          val (IntV(n), ls) = interpE(left, env, sto)
+          val (IntV(m), rs) = interpE(right, env, ls)
+          (BooleanV(n == m), rs)
+        case Lt(left, right) =>
+          val (IntV(n), ls) = interpE(left, env, sto)
+          val (IntV(m), rs) = interpE(right, env, ls)
+          (BooleanV(n < m), rs)
+      }
   }
 
   def tests: Unit = {
