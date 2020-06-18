@@ -156,6 +156,41 @@ package object proj03 extends Project03 {
 
     def storeLookup(addr: Addr, sto: Sto): Value =
       sto.getOrElse(addr, error("Address does not exist!"))
+
+    def accEnv(rd: RecDef, env: Env, sto: Sto): (Env, Sto) =
+      rd match {
+        case Lazy(name, expr) =>
+          val addr = malloc(sto)
+          (Map(name -> addr), sto + (addr -> UnitV))
+        case RecFun(name, params, body) =>
+          val addr = malloc(sto)
+          (Map(name -> addr), sto + (addr -> UnitV))
+        case TypeDef(variants) =>
+          variants.foldLeft((Map[String, Addr](), sto))((acc, variant) => {
+            val addr = malloc(acc._2)
+            (acc._1 + (variant.name -> addr), acc._2 + (addr -> UnitV))
+          })
+      }
+
+    def accSto(rd: RecDef, env: Env, sto: Sto): Sto =
+      rd match {
+        case Lazy(name, expr) =>
+          sto + (envLookup(name, env) -> ExprV(expr, env))
+        case RecFun(name, params, body) =>
+          sto + (envLookup(name, env) -> CloV(params, body, env))
+        case TypeDef(variants) =>
+          variants.foldLeft(sto)((acc, variant) =>
+            acc + (
+              envLookup(variant.name, env) -> (
+                if (variant.empty)
+                  VariantV(variant.name, Nil)
+                else
+                  ConstructorV(variant.name)
+              )
+            )
+          )
+      }
+
     def interp(expr: Expr): Value =
       interpE(expr, Map(), Map())._1
 
@@ -212,6 +247,14 @@ package object proj03 extends Project03 {
               (lV, lM + (addr -> lV))
             case default => (default, sto)
           }
+        case RecBinds(defs, body) =>
+          val (aEnv, aSto) = defs.foldLeft((Map[String, Addr](), sto))((acc, rd) => {
+            val (nenv, nsto) = accEnv(rd, acc._1, acc._2)
+            (acc._1 ++ nenv, nsto)
+          })
+          val nEnv = env ++ aEnv
+          val nSto = defs.foldLeft(aSto)((acc, rd) => accSto(rd, nEnv, acc))
+          interpE(body, nEnv, nSto)
       }
   }
 
