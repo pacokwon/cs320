@@ -38,8 +38,62 @@ package object proj03 extends Project03 {
           if (env.tvars.contains(name)) ty
           else error("Variable Type not in Type Environment!")
       }
+
+    def validType(rd: RecDef, env: TEnv): Unit =
+      rd match {
+        case Lazy(name, typ, expr) =>
+          mustSame(validType(typ, env), typeCheckHelper(expr, env))
+        case RecFun(name, tparams, params, rtype, body) =>
+          // (1), (2)
+          if (tparams.foldLeft(false)((acc, tparam) => acc || env.tvars.contains(tparam))) {
+            error("Variant already in type environment!")
+            return
+          }
+          // (3), (4)
+          val tvEnv = tparams.foldLeft(env)((acc, tparam) => acc + tparam)
+          // (5)
+          params.foreach(param => validType(param._2, tvEnv))
+          // (6)
+          validType(rtype, tvEnv)
+          // (7)
+          val nEnv = params.foldLeft(tvEnv)((acc, param) => tvEnv.+(param._1, Nil, param._2, true))
+          // (8), (9)
+          mustSame(rtype, typeCheckHelper(body, nEnv))
+        case TypeDef(name, tparams, variants) =>
+          // (1), (2)
+          if (tparams.foldLeft(false)((acc, tparam) => acc || env.tvars.contains(tparam))) {
+            error("τ is not well formed!")
+            return
+          }
+          // (3), (4)
+          val tvEnv = tparams.foldLeft(env)((acc, tparam) => acc + tparam)
+          // (5), (6)
+          variants.foreach(variant => variant.params.foreach(param => validType(param, tvEnv)))
+      }
+
+    def accTEnv(rd: RecDef, env: TEnv): TEnv =
+      rd match {
+        case Lazy(name, typ, expr) =>
+          env.+(name, Nil, typ)
+        case RecFun(name, tparams, params, rtype, body) =>
+          env.+(name, tparams, ArrowT(params.map(param => param._2), rtype), true)
+        case TypeDef(name, tparams, variants) =>
+          if (env.tbinds.contains(name))
+            return error(s"$name already in type environment!")
+          env.+(name, (tparams, variants))
+      }
+
+    def substitute(t1: Type, name: String, t2: Type): Type =
+      t1 match {
+        case IntT | BooleanT | UnitT => t1
+        case ArrowT(ptypes, rtype) => ArrowT(ptypes.map(pt => substitute(pt, name, t2)), substitute(rtype, name, t2))
+        case AppT(n, targs) => AppT(n, targs.map(ta => substitute(ta, name, t2)))
+        case VarT(n) => if (n == name) t2 else t1
+      }
+
     def typeCheck(expr: Expr): Type =
       typeCheckHelper(expr, TEnv())
+
     def typeCheckHelper(expr: Expr, env: TEnv): Type =
       expr match {
         case IntE(_) => IntT
@@ -79,6 +133,11 @@ package object proj03 extends Project03 {
             return error("# of type arguments != # of type parameters!")
           // (6), (7), (8)
           (tx._1 zip targs).foldLeft(tx._2)((acc, patup) => substitute(acc, patup._1, patup._2))
+        case RecBinds(defs, body) =>
+          // (1), (2)
+          val tenv = defs.foldLeft(env)((acc, rd) => accTEnv(rd, env))
+          defs.foreach(rd => validType(rd, tenv))
+          validType(typeCheckHelper(body, tenv), env)
       }
   }
 
