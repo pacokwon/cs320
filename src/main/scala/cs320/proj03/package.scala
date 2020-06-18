@@ -8,6 +8,15 @@ package object proj03 extends Project03 {
   object T {
     import Typed._
 
+    case class TEnv(vars: Map[String, (List[String], Type, Boolean)] = Map(), tbinds: Map[String, (List[String], List[Variant])] = Map(), tvars: Set[String] = Set()) {
+      def +(x: String, tparams: List[String], t: Type, mut: Boolean = false): TEnv =
+        copy(vars + (x -> (tparams, t, mut)), tbinds)
+      def +(x: String, cs: (List[String], List[Variant])): TEnv =
+        copy(vars, tbinds + (x -> cs))
+      def +(x: String): TEnv =
+        copy(vars, tbinds, tvars + x)
+    }
+
     def validType(ty: Type, env: TEnv): Type =
       ty match {
         case IntT | BooleanT | UnitT => ty
