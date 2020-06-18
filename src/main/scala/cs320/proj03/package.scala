@@ -55,6 +55,30 @@ package object proj03 extends Project03 {
         case Lt(left, right) =>
           mustSame(mustSame(IntT, typeCheckHelper(left, env)), typeCheckHelper(right, env))
           BooleanT
+        case Sequence(left, right) =>
+          typeCheckHelper(left, env)
+          typeCheckHelper(right, env)
+        case If(cond, texpr, fexpr) =>
+          mustSame(BooleanT, typeCheckHelper(cond, env))
+          mustSame(typeCheckHelper(texpr, env), typeCheckHelper(fexpr, env))
+        case Val(mut, name, typ, exp, body) =>
+          typ match {
+            case Some(t) =>
+              mustSame(validType(t, env), typeCheckHelper(exp, env))
+            case None =>
+          }
+          val t1 = typeCheckHelper(exp, env)
+          typeCheckHelper(body, env.+(name, Nil, t1, mut))
+        case Id(name, targs) =>
+          // (1), (2)
+          targs.foreach(targ => validType(targ, env))
+          // (3), (4)
+          val tx = env.vars.getOrElse(name, error(s"$name is not in type environment!"))
+          // (5)
+          if (targs.length != tx._1.length)
+            return error("# of type arguments != # of type parameters!")
+          // (6), (7), (8)
+          (tx._1 zip targs).foldLeft(tx._2)((acc, patup) => substitute(acc, patup._1, patup._2))
       }
   }
 
