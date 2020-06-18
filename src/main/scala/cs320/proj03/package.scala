@@ -138,6 +138,42 @@ package object proj03 extends Project03 {
           val tenv = defs.foldLeft(env)((acc, rd) => accTEnv(rd, env))
           defs.foreach(rd => validType(rd, tenv))
           validType(typeCheckHelper(body, tenv), env)
+        case Fun(params, body) =>
+          // (1), (2)
+          params.foreach(param => validType(param._2, env))
+          // (3)
+          val newEnv = params.foldLeft(env)((acc, param) => acc.+(param._1, Nil, param._2, true))
+          // (4), (5)
+          ArrowT(params.map(param => param._2), typeCheckHelper(body, newEnv))
+        case Assign(name, exp) =>
+          // (1), (2), (3)
+          val (tparams, typ, mut) = env.vars.getOrElse(name, error(s"$name is not in type environment!"))
+          // (4)
+          if (tparams.length != 0)
+            return error("type parameter's length is over 0!")
+          // (5)
+          if (!mut)
+            return error("variable is not mutable!")
+          // (6)
+          mustSame(typ, typeCheckHelper(exp, env))
+          // (7)
+          UnitT
+        case App(fun, args) =>
+          // (1)
+          typeCheckHelper(fun, env) match {
+            // (2), (3)
+            case at @ ArrowT(ptypes, rtype) =>
+              // (4)
+              if (ptypes.length != args.length)
+                error("# of type arguments != # of type parameters!")
+              else {
+                // (5)
+                (ptypes zip args).foreach(tatup => mustSame(tatup._1, typeCheckHelper(tatup._2, env)))
+                // (6)
+                rtype
+              }
+            case default => error("type is not function!")
+          }
       }
   }
 
@@ -255,6 +291,46 @@ package object proj03 extends Project03 {
           val nEnv = env ++ aEnv
           val nSto = defs.foldLeft(aSto)((acc, rd) => accSto(rd, nEnv, acc))
           interpE(body, nEnv, nSto)
+        case Fun(params, body) =>
+          (CloV(params, body, env), sto)
+        case Assign(name, exp) =>
+          if (!env.contains(name))
+            return error(s"$name is not in environment!")
+          val (nv, ns) = interpE(exp, env, sto)
+          (UnitV, ns + (envLookup(name, env) -> nv))
+        case App(fun, args) =>
+          interpE(fun, env, sto) match {
+            case (CloV(params, body, fenv), ns) =>
+              // (4), (5) - (c)
+              val (valsRev, nsto) = args.foldLeft((List[Value](), sto))((acc, arg) => {
+                val (nv, ns) = interpE(arg, env, acc._2)
+                (nv :: acc._1, ns)
+              })
+              val vals = valsRev.reverse
+
+              // (5) - (a), (b)
+              if (args.length != params.length)
+                return error("# of type arguments != # of type parameters!")
+
+              // (5) - (d), (e), (f)
+              val (newFEnv, newSto) = (params zip vals).foldLeft((fenv, sto))((acc, pzv) => {
+                val addr = malloc(acc._2)
+                (acc._1 + (pzv._1 -> addr), acc._2 + (addr -> pzv._2))
+              })
+
+              // (5) - (g), (h), (i)
+              interpE(body, newFEnv, newSto)
+            case (ConstructorV(name), ns) =>
+              // (4)
+              val (valsRev, nsto) = args.foldLeft((List[Value](), sto))((acc, arg) => {
+                val (nv, ns) = interpE(arg, env, acc._2)
+                (nv :: acc._1, ns)
+              })
+              val vals = valsRev.reverse
+              // (6)
+              (VariantV(name, vals), nsto)
+            case (_, _) => error("Not Closure or Constructor!")
+          }
       }
   }
 
