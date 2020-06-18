@@ -17,6 +17,9 @@ package object proj03 extends Project03 {
         copy(vars, tbinds, tvars + x)
     }
 
+    def mustSame(t1: Type, t2: Type): Type =
+      if (t1 == t2) t1 else error("Type not same!")
+
     def validType(ty: Type, env: TEnv): Type =
       ty match {
         case IntT | BooleanT | UnitT => ty
