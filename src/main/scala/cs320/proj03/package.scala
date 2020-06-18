@@ -41,6 +41,20 @@ package object proj03 extends Project03 {
     def typeCheck(expr: Expr): Type =
       typeCheckHelper(expr, TEnv())
     def typeCheckHelper(expr: Expr, env: TEnv): Type =
+      expr match {
+        case IntE(_) => IntT
+        case BooleanE(_) => BooleanT
+        case UnitE => UnitT
+        case Add(left, right) => mustSame(mustSame(IntT, typeCheckHelper(left, env)), typeCheckHelper(right, env))
+        case Mul(left, right) => mustSame(mustSame(IntT, typeCheckHelper(left, env)), typeCheckHelper(right, env))
+        case Div(left, right) => mustSame(mustSame(IntT, typeCheckHelper(left, env)), typeCheckHelper(right, env))
+        case Mod(left, right) => mustSame(mustSame(IntT, typeCheckHelper(left, env)), typeCheckHelper(right, env))
+        case Eq(left, right) =>
+          mustSame(mustSame(IntT, typeCheckHelper(left, env)), typeCheckHelper(right, env))
+          BooleanT
+        case Lt(left, right) =>
+          mustSame(mustSame(IntT, typeCheckHelper(left, env)), typeCheckHelper(right, env))
+          BooleanT
       }
   }
 
