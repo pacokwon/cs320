@@ -85,7 +85,22 @@ package object proj03 extends Project03 {
   object U {
     import Untyped._
 
-    def interp(expr: Expr): Value = ???
+    type Sto = Map[Addr, Value]
+
+    def malloc(sto: Sto): Addr =
+      sto.foldLeft(0) {
+        case (max, (addr, _)) => math.max(max, addr)
+      } + 1
+
+    def envLookup(id: String, env: Env): Addr =
+      env.getOrElse(id, error(s"Free identifier $id!"))
+
+    def storeLookup(addr: Addr, sto: Sto): Value =
+      sto.getOrElse(addr, error("Address does not exist!"))
+    def interp(expr: Expr): Value =
+      interpE(expr, Map(), Map())._1
+
+    def interpE(expr: Expr, env: Env, sto: Sto): (Value, Sto) =
   }
 
   def tests: Unit = {
