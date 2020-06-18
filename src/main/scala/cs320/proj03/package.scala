@@ -129,6 +129,30 @@ package object proj03 extends Project03 {
           val (IntV(n), ls) = interpE(left, env, sto)
           val (IntV(m), rs) = interpE(right, env, ls)
           (BooleanV(n < m), rs)
+        case Sequence(left, right) =>
+          val (_, ls) = interpE(left, env, sto)
+          interpE(right, env, ls)
+        case If(c, t, f) =>
+          val (v, cs) = interpE(c, env, sto)
+          v match {
+            case BooleanV(b) =>
+              interpE(if (b) t else f, env, cs)
+            case _ => error("Not BooleanV!")
+          }
+        case Val(name, expr, body) =>
+          val (v, ls) = interpE(expr, env, sto)
+          val addr = malloc(ls)
+          interpE(body, env + (name -> addr), ls + (addr -> v))
+        case Id(name) =>
+          // (1), (3), (4)
+          val addr = envLookup(name, env)
+          // (2), (5), (6)
+          storeLookup(addr, sto) match {
+            case ExprV(exp, lEnv) =>
+              val (lV, lM) = interpE(exp, lEnv, sto)
+              (lV, lM + (addr -> lV))
+            case default => (default, sto)
+          }
       }
   }
 
