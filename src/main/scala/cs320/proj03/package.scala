@@ -162,7 +162,7 @@ package object proj03 extends Project03 {
           (tx._1 zip targs).foldLeft(tx._2)((acc, patup) => substitute(acc, patup._1, patup._2))
         case RecBinds(defs, body) =>
           // (1), (2)
-          val tenv = defs.foldLeft(env)((acc, rd) => accTEnv(rd, env))
+          val tenv = defs.foldLeft(env)((acc, rd) => accTEnv(rd, acc))
           defs.foreach(rd => validType(rd, tenv))
           validType(typeCheckHelper(body, tenv), env)
         case Fun(params, body) =>
