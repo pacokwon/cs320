@@ -8,13 +8,408 @@ package object proj03 extends Project03 {
   object T {
     import Typed._
 
-    def typeCheck(expr: Expr): Type = ???
+    case class TEnv(vars: Map[String, (List[String], Type, Boolean)] = Map(), tbinds: Map[String, (List[String], List[Variant])] = Map(), tvars: Set[String] = Set()) {
+      def +(x: String, tparams: List[String], t: Type, mut: Boolean = false): TEnv =
+        copy(vars + (x -> (tparams, t, mut)), tbinds)
+      def +(x: String, cs: (List[String], List[Variant])): TEnv =
+        copy(vars, tbinds + (x -> cs))
+      def +(x: String): TEnv =
+        copy(vars, tbinds, tvars + x)
+    }
+
+    def same(left: Type, right: Type): Boolean =
+      (left, right) match {
+        case (IntT, IntT) => true
+        case (BooleanT, BooleanT) => true
+        case (UnitT, UnitT) => true
+        case (ArrowT(p1, r1), ArrowT(p2, r2)) =>
+          (p1.length == p2.length) && (p1 zip p2).foldLeft(true)((acc, pp) => acc && same(pp._1, pp._2)) && same(r1, r2)
+        case (VarT(v1), VarT(v2)) => v1 == v2
+        case (AppT(n1, ta1), AppT(n2, ta2)) =>
+          (n1 == n2) && (ta1.length == ta2.length) && (ta1 zip ta2).foldLeft(true)((acc, tt) => acc && same(tt._1, tt._2))
+        case (_, _) => false
+      }
+
+    def mustSame(t1: Type, t2: Type): Type =
+      if (same(t1, t2)) t1
+      else error("Two types are not equal!")
+
+    def validType(ty: Type, env: TEnv): Type =
+      ty match {
+        case IntT | BooleanT | UnitT => ty
+        case ArrowT(p, r) =>
+          ArrowT(p.map(pt => validType(pt, env)), validType(r, env))
+        case AppT(name, targs) =>
+          targs.foreach(ta => validType(ta, env))
+          if (!env.tbinds.contains(name))
+            error("Type not in domain!")
+          else {
+            val tbind = env.tbinds.getOrElse(name, error("Type not in Type Environment!"))
+            if (targs.length == tbind._1.size) ty
+            else error("# of type arguments != # of type parameters!")
+          }
+        case VarT(name) =>
+          if (env.tvars.contains(name)) ty
+          else error("Variable Type not in Type Environment!")
+      }
+
+    def validType(rd: RecDef, env: TEnv): Unit =
+      rd match {
+        case Lazy(name, typ, expr) =>
+          mustSame(validType(typ, env), typeCheckHelper(expr, env))
+        case RecFun(name, tparams, params, rtype, body) =>
+          // (1), (2)
+          if (tparams.foldLeft(false)((acc, tparam) => acc || env.tvars.contains(tparam))) {
+            error("Variant already in type environment!")
+            return
+          }
+          // (3), (4)
+          val tvEnv = tparams.foldLeft(env)((acc, tparam) => acc + tparam)
+          // (5)
+          params.foreach(param => validType(param._2, tvEnv))
+          // (6)
+          validType(rtype, tvEnv)
+          // (7)
+          val nEnv = params.foldLeft(tvEnv)((acc, param) => acc.+(param._1, Nil, param._2))
+          // (8), (9)
+          mustSame(rtype, typeCheckHelper(body, nEnv))
+        case TypeDef(name, tparams, variants) =>
+          // (1), (2)
+          if (tparams.foldLeft(false)((acc, tparam) => acc || env.tvars.contains(tparam))) {
+            error("τ is not well formed!")
+            return
+          }
+          // (3), (4)
+          val tvEnv = tparams.foldLeft(env)((acc, tparam) => acc + tparam)
+          // (5), (6)
+          variants.foreach(variant => variant.params.foreach(param => validType(param, tvEnv)))
+      }
+
+    def accTEnv(rd: RecDef, env: TEnv): TEnv =
+      rd match {
+        case Lazy(name, typ, expr) =>
+          env.+(name, Nil, typ)
+        case RecFun(name, tparams, params, rtype, body) =>
+          env.+(name, tparams, ArrowT(params.map(param => param._2), rtype))
+        case TypeDef(name, tparams, variants) =>
+          if (env.tbinds.contains(name))
+            return error(s"$name already in type environment!")
+          variants.foldLeft(env.+(name, (tparams, variants)))((accEnv, variant) =>
+            if (variant.params.isEmpty)
+              accEnv.+(variant.name, tparams, AppT(name, tparams.map(tp => VarT(tp))))
+            else
+              accEnv.+(variant.name, tparams, ArrowT(variant.params, AppT(name, tparams.map(tp => VarT(tp)))))
+          )
+      }
+
+    def substitute(t1: Type, name: String, t2: Type): Type =
+      t1 match {
+        case IntT | BooleanT | UnitT => t1
+        case ArrowT(ptypes, rtype) => ArrowT(ptypes.map(pt => substitute(pt, name, t2)), substitute(rtype, name, t2))
+        case AppT(n, targs) => AppT(n, targs.map(ta => substitute(ta, name, t2)))
+        case VarT(n) => if (n == name) t2 else t1
+      }
+
+    def substitute(t1: Type, tMap: Map[String, Type]): Type =
+      t1 match {
+        case IntT | BooleanT | UnitT => t1
+        case ArrowT(ptypes, rtype) => ArrowT(ptypes.map(pt => substitute(pt, tMap)), substitute(rtype, tMap))
+        case AppT(n, targs) => AppT(n, targs.map(ta => substitute(ta, tMap)))
+        case VarT(n) => tMap.foldLeft(t1)((acc, cur) => if (n == cur._1) cur._2 else acc)
+      }
+
+    def typeCheck(expr: Expr): Type =
+      typeCheckHelper(expr, TEnv())
+
+    def typeCheckHelper(expr: Expr, env: TEnv): Type =
+      expr match {
+        case IntE(_) => IntT
+        case BooleanE(_) => BooleanT
+        case UnitE => UnitT
+        case Add(left, right) => mustSame(mustSame(IntT, typeCheckHelper(left, env)), typeCheckHelper(right, env))
+        case Mul(left, right) => mustSame(mustSame(IntT, typeCheckHelper(left, env)), typeCheckHelper(right, env))
+        case Div(left, right) => mustSame(mustSame(IntT, typeCheckHelper(left, env)), typeCheckHelper(right, env))
+        case Mod(left, right) => mustSame(mustSame(IntT, typeCheckHelper(left, env)), typeCheckHelper(right, env))
+        case Eq(left, right) =>
+          mustSame(mustSame(IntT, typeCheckHelper(left, env)), typeCheckHelper(right, env))
+          BooleanT
+        case Lt(left, right) =>
+          mustSame(mustSame(IntT, typeCheckHelper(left, env)), typeCheckHelper(right, env))
+          BooleanT
+        case Sequence(left, right) =>
+          typeCheckHelper(left, env)
+          typeCheckHelper(right, env)
+        case If(cond, texpr, fexpr) =>
+          mustSame(BooleanT, typeCheckHelper(cond, env))
+          mustSame(typeCheckHelper(texpr, env), typeCheckHelper(fexpr, env))
+        case Val(mut, name, typ, exp, body) =>
+          typ match {
+            case Some(t) =>
+              mustSame(validType(t, env), typeCheckHelper(exp, env))
+            case None =>
+          }
+          val t1 = typeCheckHelper(exp, env)
+          typeCheckHelper(body, env.+(name, Nil, t1, mut))
+        case Id(name, targs) =>
+          // (1), (2)
+          targs.foreach(targ => validType(targ, env))
+          // (3), (4)
+          val (tparams, typ, mut) = env.vars.getOrElse(name, error(s"$name is not in type environment!"))
+          // (5)
+          if (targs.length != tparams.length)
+            return error("# of type arguments != # of type parameters!")
+          // (6), (7), (8)
+          substitute(typ, (tparams zip targs).toMap)
+        case RecBinds(defs, body) =>
+          // (1), (2)
+          val tenv = defs.foldLeft(env)((acc, rd) => accTEnv(rd, acc))
+          defs.foreach(rd => validType(rd, tenv))
+          validType(typeCheckHelper(body, tenv), env)
+        case Fun(params, body) =>
+          // (1), (2)
+          params.foreach(param => validType(param._2, env))
+          // (3)
+          val newEnv = params.foldLeft(env)((acc, param) => acc.+(param._1, Nil, param._2))
+          // (4), (5)
+          ArrowT(params.map(param => param._2), typeCheckHelper(body, newEnv))
+        case Assign(name, exp) =>
+          // (1), (2), (3)
+          val (tparams, typ, mut) = env.vars.getOrElse(name, error(s"$name is not in type environment!"))
+          // (4)
+          if (tparams.length != 0)
+            return error("type parameter's length is over 0!")
+          // (5)
+          if (!mut)
+            return error("variable is not mutable!")
+          // (6)
+          mustSame(typ, typeCheckHelper(exp, env))
+          // (7)
+          UnitT
+        case App(fun, args) =>
+          // (1)
+          typeCheckHelper(fun, env) match {
+            // (2), (3)
+            case at @ ArrowT(ptypes, rtype) =>
+              // (4)
+              if (ptypes.length != args.length)
+                error("# of type arguments != # of type parameters!")
+              else {
+                // (5)
+                (ptypes zip args).foreach(tatup => mustSame(tatup._1, typeCheckHelper(tatup._2, env)))
+                // (6)
+                rtype
+              }
+            case default => error("type is not function!")
+          }
+        case Match(exp, cases) =>
+          typeCheckHelper(exp, env) match {
+            // (3), (4)
+            case AppT(name, targs) =>
+              // (5), (6)
+              val (alphas, variants) = env.tbinds.getOrElse(name, error("type is not AppT!"))
+              // (7)
+              if (targs.length != alphas.length)
+                return error("# of type arguments != # of type parameters!")
+              // (8)
+              if (cases.length != variants.length)
+                return error("# of cases != # of variants!")
+
+              val caseTypes = cases.map(esac => {
+                val filtered = variants.filter(variant => variant.name == esac.variant)
+                if (filtered.isEmpty)
+                  error(s"No variant named ${esac.variant}")
+                val Variant(name, params) = filtered.head
+                if (esac.names.length != params.length)
+                  error("# of variant parameters != # of case arguments")
+
+                // for each variant type param
+                val newEnv = (esac.names zip params).foldLeft(env)((accEnv, nptup) => {
+                  // for each alpha
+                  val subbed = substitute(nptup._2, (alphas zip targs).toMap)
+                  accEnv.+(nptup._1, Nil, subbed)
+                })
+
+                typeCheckHelper(esac.body, newEnv)
+              })
+
+              caseTypes.foldLeft(caseTypes.head)((acc, ct) => mustSame(acc, ct))
+            case _ => error("Not AppT!")
+          }
+      }
   }
 
   object U {
     import Untyped._
 
-    def interp(expr: Expr): Value = ???
+    type Sto = Map[Addr, Value]
+
+    def malloc(sto: Sto): Addr =
+      sto.foldLeft(0) {
+        case (max, (addr, _)) => math.max(max, addr)
+      } + 1
+
+    def envLookup(id: String, env: Env): Addr =
+      env.getOrElse(id, error(s"Free identifier $id!"))
+
+    def storeLookup(addr: Addr, sto: Sto): Value =
+      sto.getOrElse(addr, error("Address does not exist!"))
+
+    def accEnv(rd: RecDef, env: Env, sto: Sto): (Env, Sto) =
+      rd match {
+        case Lazy(name, expr) =>
+          val addr = malloc(sto)
+          (Map(name -> addr), sto + (addr -> UnitV))
+        case RecFun(name, params, body) =>
+          val addr = malloc(sto)
+          (Map(name -> addr), sto + (addr -> UnitV))
+        case TypeDef(variants) =>
+          variants.foldLeft((Map[String, Addr](), sto))((acc, variant) => {
+            val addr = malloc(acc._2)
+            (acc._1 + (variant.name -> addr), acc._2 + (addr -> UnitV))
+          })
+      }
+
+    def accSto(rd: RecDef, env: Env, sto: Sto): Sto =
+      rd match {
+        case Lazy(name, expr) =>
+          sto + (envLookup(name, env) -> ExprV(expr, env))
+        case RecFun(name, params, body) =>
+          sto + (envLookup(name, env) -> CloV(params, body, env))
+        case TypeDef(variants) =>
+          variants.foldLeft(sto)((acc, variant) =>
+            acc + (
+              envLookup(variant.name, env) -> (
+                if (variant.empty)
+                  VariantV(variant.name, Nil)
+                else
+                  ConstructorV(variant.name)
+              )
+            )
+          )
+      }
+
+    def interp(expr: Expr): Value =
+      interpE(expr, Map(), Map())._1
+
+    def interpE(expr: Expr, env: Env, sto: Sto): (Value, Sto) =
+      expr match {
+        case IntE(value) => (IntV(value), sto)
+        case BooleanE(value) => (BooleanV(value), sto)
+        case UnitE => (UnitV, sto)
+        case Add(left, right) =>
+          val (IntV(n), ls) = interpE(left, env, sto)
+          val (IntV(m), rs) = interpE(right, env, ls)
+          (IntV(n + m), rs)
+        case Mul(left, right) =>
+          val (IntV(n), ls) = interpE(left, env, sto)
+          val (IntV(m), rs) = interpE(right, env, ls)
+          (IntV(n * m), rs)
+        case Div(left, right) =>
+          val (IntV(n), ls) = interpE(left, env, sto)
+          val (IntV(m), rs) = interpE(right, env, ls)
+          (IntV(n / m), rs)
+        case Mod(left, right) =>
+          val (IntV(n), ls) = interpE(left, env, sto)
+          val (IntV(m), rs) = interpE(right, env, ls)
+          (IntV(n % m), rs)
+        case Eq(left, right) =>
+          val (IntV(n), ls) = interpE(left, env, sto)
+          val (IntV(m), rs) = interpE(right, env, ls)
+          (BooleanV(n == m), rs)
+        case Lt(left, right) =>
+          val (IntV(n), ls) = interpE(left, env, sto)
+          val (IntV(m), rs) = interpE(right, env, ls)
+          (BooleanV(n < m), rs)
+        case Sequence(left, right) =>
+          val (_, ls) = interpE(left, env, sto)
+          interpE(right, env, ls)
+        case If(c, t, f) =>
+          val (v, cs) = interpE(c, env, sto)
+          v match {
+            case BooleanV(b) =>
+              interpE(if (b) t else f, env, cs)
+            case _ => error("Not BooleanV!")
+          }
+        case Val(name, expr, body) =>
+          val (v, ls) = interpE(expr, env, sto)
+          val addr = malloc(ls)
+          interpE(body, env + (name -> addr), ls + (addr -> v))
+        case Id(name) =>
+          // (1), (3), (4)
+          val addr = envLookup(name, env)
+          // (2), (5), (6)
+          storeLookup(addr, sto) match {
+            case ExprV(exp, lEnv) =>
+              val (lV, lM) = interpE(exp, lEnv, sto)
+              (lV, lM + (addr -> lV))
+            case default => (default, sto)
+          }
+        case RecBinds(defs, body) =>
+          val (aEnv, aSto) = defs.foldLeft((Map[String, Addr](), sto))((acc, rd) => {
+            val (nenv, nsto) = accEnv(rd, acc._1, acc._2)
+            (acc._1 ++ nenv, nsto)
+          })
+          val nEnv = env ++ aEnv
+          val nSto = defs.foldLeft(aSto)((acc, rd) => accSto(rd, nEnv, acc))
+          interpE(body, nEnv, nSto)
+        case Fun(params, body) =>
+          (CloV(params, body, env), sto)
+        case Assign(name, exp) =>
+          if (!env.contains(name))
+            return error(s"$name is not in environment!")
+          val (nv, ns) = interpE(exp, env, sto)
+          (UnitV, ns + (envLookup(name, env) -> nv))
+        case App(fun, args) =>
+          interpE(fun, env, sto) match {
+            case (CloV(params, body, fenv), ns) =>
+              // (4), (5) - (c)
+              val (valsRev, valsSto) = args.foldLeft((List[Value](), ns))((acc, arg) => {
+                val (nv, ns) = interpE(arg, env, acc._2)
+                (nv :: acc._1, ns)
+              })
+              val vals = valsRev.reverse
+
+              // (5) - (a), (b)
+              if (args.length != params.length)
+                return error("# of type arguments != # of type parameters!")
+
+              // (5) - (d), (e), (f)
+              val (newFEnv, newSto) = (params zip vals).foldLeft((fenv, valsSto))((acc, pzv) => {
+                val addr = malloc(acc._2)
+                (acc._1 + (pzv._1 -> addr), acc._2 + (addr -> pzv._2))
+              })
+
+              // (5) - (g), (h), (i)
+              interpE(body, newFEnv, newSto)
+            case (ConstructorV(name), ns) =>
+              // (4)
+              val (valsRev, nsto) = args.foldLeft((List[Value](), sto))((acc, arg) => {
+                val (nv, ns) = interpE(arg, env, acc._2)
+                (nv :: acc._1, ns)
+              })
+              val vals = valsRev.reverse
+              // (6)
+              (VariantV(name, vals), nsto)
+            case (_, _) =>
+              error("Not Closure or Constructor!")
+          }
+        case Match(exp, cases) =>
+          interpE(exp, env, sto) match {
+            case (VariantV(name, values), ns) =>
+              val fcases = cases.filter(esac => esac.variant == name)
+              if (fcases.isEmpty)
+                error("Variant does not match any case!")
+              val Case(variant, names, body) = fcases.head
+              if (values.length != names.length)
+                error("# of variant parameters != # of case arguments")
+              val (newEnv, newSto) = (names zip values).foldLeft((env, ns))((acc, nv) => {
+                val addr = malloc(acc._2)
+                (acc._1 + (nv._1 -> addr), acc._2 + (addr -> nv._2))
+              })
+              interpE(body, newEnv, newSto)
+            case (_, _) => error("Not Variant!")
+          }
+      }
   }
 
   def tests: Unit = {
