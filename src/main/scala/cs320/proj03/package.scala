@@ -70,7 +70,7 @@ package object proj03 extends Project03 {
           // (6)
           validType(rtype, tvEnv)
           // (7)
-          val nEnv = params.foldLeft(tvEnv)((acc, param) => tvEnv.+(param._1, Nil, param._2, true))
+          val nEnv = params.foldLeft(tvEnv)((acc, param) => acc.+(param._1, Nil, param._2))
           // (8), (9)
           mustSame(rtype, typeCheckHelper(body, nEnv))
         case TypeDef(name, tparams, variants) =>
