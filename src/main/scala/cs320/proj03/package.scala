@@ -363,7 +363,7 @@ package object proj03 extends Project03 {
           interpE(fun, env, sto) match {
             case (CloV(params, body, fenv), ns) =>
               // (4), (5) - (c)
-              val (valsRev, nsto) = args.foldLeft((List[Value](), sto))((acc, arg) => {
+              val (valsRev, valsSto) = args.foldLeft((List[Value](), ns))((acc, arg) => {
                 val (nv, ns) = interpE(arg, env, acc._2)
                 (nv :: acc._1, ns)
               })
@@ -374,7 +374,7 @@ package object proj03 extends Project03 {
                 return error("# of type arguments != # of type parameters!")
 
               // (5) - (d), (e), (f)
-              val (newFEnv, newSto) = (params zip vals).foldLeft((fenv, sto))((acc, pzv) => {
+              val (newFEnv, newSto) = (params zip vals).foldLeft((fenv, valsSto))((acc, pzv) => {
                 val addr = malloc(acc._2)
                 (acc._1 + (pzv._1 -> addr), acc._2 + (addr -> pzv._2))
               })
