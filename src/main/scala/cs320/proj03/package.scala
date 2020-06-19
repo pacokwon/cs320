@@ -90,7 +90,7 @@ package object proj03 extends Project03 {
         case Lazy(name, typ, expr) =>
           env.+(name, Nil, typ)
         case RecFun(name, tparams, params, rtype, body) =>
-          env.+(name, tparams, ArrowT(params.map(param => param._2), rtype), true)
+          env.+(name, tparams, ArrowT(params.map(param => param._2), rtype))
         case TypeDef(name, tparams, variants) =>
           if (env.tbinds.contains(name))
             return error(s"$name already in type environment!")
@@ -156,7 +156,7 @@ package object proj03 extends Project03 {
           // (1), (2)
           params.foreach(param => validType(param._2, env))
           // (3)
-          val newEnv = params.foldLeft(env)((acc, param) => acc.+(param._1, Nil, param._2, true))
+          val newEnv = params.foldLeft(env)((acc, param) => acc.+(param._1, Nil, param._2))
           // (4), (5)
           ArrowT(params.map(param => param._2), typeCheckHelper(body, newEnv))
         case Assign(name, exp) =>
