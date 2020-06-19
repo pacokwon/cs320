@@ -17,8 +17,22 @@ package object proj03 extends Project03 {
         copy(vars, tbinds, tvars + x)
     }
 
+    def same(left: Type, right: Type): Boolean =
+      (left, right) match {
+        case (IntT, IntT) => true
+        case (BooleanT, BooleanT) => true
+        case (UnitT, UnitT) => true
+        case (ArrowT(p1, r1), ArrowT(p2, r2)) =>
+          (p1.length == p2.length) && (p1 zip p2).foldLeft(true)((acc, pp) => acc && same(pp._1, pp._2)) && same(r1, r2)
+        case (VarT(v1), VarT(v2)) => v1 == v2
+        case (AppT(n1, ta1), AppT(n2, ta2)) =>
+          (n1 == n2) && (ta1.length == ta2.length) && (ta1 zip ta2).foldLeft(true)((acc, tt) => acc && same(tt._1, tt._2))
+        case (_, _) => false
+      }
+
     def mustSame(t1: Type, t2: Type): Type =
-      if (t1 == t2) t1 else error("Type not same!")
+      if (same(t1, t2)) t1
+      else error("Two types are not equal!")
 
     def validType(ty: Type, env: TEnv): Type =
       ty match {
