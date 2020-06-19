@@ -110,6 +110,14 @@ package object proj03 extends Project03 {
         case VarT(n) => if (n == name) t2 else t1
       }
 
+    def substitute(t1: Type, tMap: Map[String, Type]): Type =
+      t1 match {
+        case IntT | BooleanT | UnitT => t1
+        case ArrowT(ptypes, rtype) => ArrowT(ptypes.map(pt => substitute(pt, tMap)), substitute(rtype, tMap))
+        case AppT(n, targs) => AppT(n, targs.map(ta => substitute(ta, tMap)))
+        case VarT(n) => tMap.foldLeft(t1)((acc, cur) => if (n == cur._1) cur._2 else acc)
+      }
+
     def typeCheck(expr: Expr): Type =
       typeCheckHelper(expr, TEnv())
 
