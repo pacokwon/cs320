@@ -159,7 +159,7 @@ package object proj03 extends Project03 {
           if (targs.length != tparams.length)
             return error("# of type arguments != # of type parameters!")
           // (6), (7), (8)
-          (tx._1 zip targs).foldLeft(tx._2)((acc, patup) => substitute(acc, patup._1, patup._2))
+          substitute(typ, (tparams zip targs).toMap)
         case RecBinds(defs, body) =>
           // (1), (2)
           val tenv = defs.foldLeft(env)((acc, rd) => accTEnv(rd, acc))
