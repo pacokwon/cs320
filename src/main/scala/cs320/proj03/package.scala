@@ -201,6 +201,40 @@ package object proj03 extends Project03 {
               }
             case default => error("type is not function!")
           }
+        case Match(exp, cases) =>
+          typeCheckHelper(exp, env) match {
+            // (3), (4)
+            case AppT(name, targs) =>
+              // (5), (6)
+              val (alphas, variants) = env.tbinds.getOrElse(name, error("type is not AppT!"))
+              // (7)
+              if (targs.length != alphas.length)
+                return error("# of type arguments != # of type parameters!")
+              // (8)
+              if (cases.length != variants.length)
+                return error("# of cases != # of variants!")
+
+              val caseTypes = cases.map(esac => {
+                val filtered = variants.filter(variant => variant.name == esac.variant)
+                if (filtered.isEmpty)
+                  error(s"No variant named ${esac.variant}")
+                val Variant(name, params) = filtered.head
+                if (esac.names.length != params.length)
+                  error("# of variant parameters != # of case arguments")
+
+                // for each variant type param
+                val newEnv = (esac.names zip params).foldLeft(env)((accEnv, nptup) => {
+                  // for each alpha
+                  val subbed = substitute(nptup._2, (alphas zip targs).toMap)
+                  accEnv.+(nptup._1, Nil, subbed)
+                })
+
+                typeCheckHelper(esac.body, newEnv)
+              })
+
+              caseTypes.foldLeft(caseTypes.head)((acc, ct) => mustSame(acc, ct))
+            case _ => error("Not AppT!")
+          }
       }
   }
 
@@ -356,7 +390,24 @@ package object proj03 extends Project03 {
               val vals = valsRev.reverse
               // (6)
               (VariantV(name, vals), nsto)
-            case (_, _) => error("Not Closure or Constructor!")
+            case (_, _) =>
+              error("Not Closure or Constructor!")
+          }
+        case Match(exp, cases) =>
+          interpE(exp, env, sto) match {
+            case (VariantV(name, values), ns) =>
+              val fcases = cases.filter(esac => esac.variant == name)
+              if (fcases.isEmpty)
+                error("Variant does not match any case!")
+              val Case(variant, names, body) = fcases.head
+              if (values.length != names.length)
+                error("# of variant parameters != # of case arguments")
+              val (newEnv, newSto) = (names zip values).foldLeft((env, ns))((acc, nv) => {
+                val addr = malloc(acc._2)
+                (acc._1 + (nv._1 -> addr), acc._2 + (addr -> nv._2))
+              })
+              interpE(body, newEnv, newSto)
+            case (_, _) => error("Not Variant!")
           }
       }
   }
