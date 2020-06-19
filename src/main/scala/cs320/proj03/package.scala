@@ -94,7 +94,12 @@ package object proj03 extends Project03 {
         case TypeDef(name, tparams, variants) =>
           if (env.tbinds.contains(name))
             return error(s"$name already in type environment!")
-          env.+(name, (tparams, variants))
+          variants.foldLeft(env.+(name, (tparams, variants)))((accEnv, variant) =>
+            if (variant.params.isEmpty)
+              accEnv.+(variant.name, tparams, AppT(name, tparams.map(tp => VarT(tp))))
+            else
+              accEnv.+(variant.name, tparams, ArrowT(variant.params, AppT(name, tparams.map(tp => VarT(tp)))))
+          )
       }
 
     def substitute(t1: Type, name: String, t2: Type): Type =
