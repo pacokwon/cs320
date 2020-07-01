@@ -102,14 +102,6 @@ package object proj03 extends Project03 {
           )
       }
 
-    def substitute(t1: Type, name: String, t2: Type): Type =
-      t1 match {
-        case IntT | BooleanT | UnitT => t1
-        case ArrowT(ptypes, rtype) => ArrowT(ptypes.map(pt => substitute(pt, name, t2)), substitute(rtype, name, t2))
-        case AppT(n, targs) => AppT(n, targs.map(ta => substitute(ta, name, t2)))
-        case VarT(n) => if (n == name) t2 else t1
-      }
-
     def substitute(t1: Type, tMap: Map[String, Type]): Type =
       t1 match {
         case IntT | BooleanT | UnitT => t1
